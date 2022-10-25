@@ -127,13 +127,13 @@ func (e *EtcdClient) Lease(key, val string, ttl int64) (int64, error) {
 }
 
 // keepLive
-func (e *EtcdClient) KeepAlive(leaseId int64) error {
-	_, err := e.cli.KeepAlive(context.Background(), clientv3.LeaseID(leaseId))
+func (e *EtcdClient) KeepAlive(leaseId int64) (<-chan *clientv3.LeaseKeepAliveResponse, error) {
+	ch, err := e.cli.KeepAlive(context.Background(), clientv3.LeaseID(leaseId))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return ch, nil
 }
 
 // 废除租约

@@ -1,9 +1,8 @@
 package regsrv
 
 import (
-	"time"
-
 	"github.com/yxlib/yx"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 const TTL = 30 // 租约时长 单位 s
@@ -36,33 +35,21 @@ func (k *ServiceRegister) LeaseAndKeepAlive(key, val string) error {
 	}
 
 	//设置续租 定期发送需求请求
-	err = k.etcdCli.KeepAlive(leaseId)
+	ch, err := k.etcdCli.KeepAlive(leaseId)
 	if err != nil {
 		return err
 	}
 
 	k.LeaseId = leaseId
-	//go k.RenewContract()
+
+	go k.readResponse(ch)
 	return nil
 }
 
-// 续租
-func (k *ServiceRegister) RenewContract() {
-	ticker := time.NewTicker(time.Second * time.Duration(TTL-5))
-
+func (k *ServiceRegister) readResponse(ch <-chan *clientv3.LeaseKeepAliveResponse) {
 	for {
-		<-ticker.C
-
-		err := k.etcdCli.KeepAlive(k.LeaseId)
-		k.logger.D("keepAlive id: ", k.LeaseId)
-		if err != nil {
-			k.logger.E("renewContract err", err)
-			break
-		}
-
-		if k.Stop {
-			break
-		}
+		<-ch
+		// 读出来清空
 	}
 }
 
