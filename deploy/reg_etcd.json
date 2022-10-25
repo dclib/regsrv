@@ -1,0 +1,11 @@
+{
+    "etcd":
+    {
+        "endpoints": [
+            "8.134.99.107:23790"
+        ],
+        "dts": 5,
+        "etcdUser": "root",
+        "etcdPass": "Zzh2022"
+    } 
+}
