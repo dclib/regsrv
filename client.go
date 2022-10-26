@@ -2,7 +2,6 @@ package regsrv
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/yxlib/yx"
@@ -19,27 +18,27 @@ type Config struct {
 }
 
 type EtcdClient struct {
-	Cfg *Config `json:"etcd"`
-	cli *clientv3.Client
+	Cfg    *Config `json:"etcd"`
+	cli    *clientv3.Client
+	logger yx.Logger
 }
 
 func NewEtcdCli() *EtcdClient {
 	return &EtcdClient{
-		Cfg: &Config{},
+		Cfg:    &Config{},
+		logger: *yx.NewLogger("EtcdClient"),
 	}
 }
 
 func (e *EtcdClient) Conn(cfgPath string) error {
 	// 创建客户端，连接etcd
-	// pwd, _ := os.Getwd()
-	// fmt.Println(pwd)
 	if cfgPath == "" {
 		cfgPath = BaseCfgPath
 	}
 
 	err := yx.LoadJsonConf(e, cfgPath, nil)
 	if err != nil {
-		fmt.Println("load log config err: ", err)
+		e.logger.E("load log config err: ", err)
 		return err
 	}
 
@@ -51,7 +50,24 @@ func (e *EtcdClient) Conn(cfgPath string) error {
 	})
 
 	if err != nil {
-		fmt.Printf("connect to etcd failed, err:%v\n", err)
+		e.logger.E("connect to etcd failed, err: ", err)
+		return err
+	}
+
+	e.cli = cli
+	return e.ConnWithParam(e.Cfg.Endpoints, e.Cfg.DialTimeoutSec, e.Cfg.EtcdUser, e.Cfg.EtcdPass)
+}
+
+func (e *EtcdClient) ConnWithParam(endpoints []string, dial int, userName string, pass string) error {
+	cli, err := clientv3.New(clientv3.Config{
+		Endpoints:   endpoints,
+		DialTimeout: time.Duration(dial) * time.Second,
+		Username:    userName,
+		Password:    pass,
+	})
+
+	if err != nil {
+		e.logger.E("connect to etcd failed, err: ", err)
 		return err
 	}
 
@@ -98,7 +114,7 @@ func (e *EtcdClient) Delete(key string) error {
 	_, err := e.cli.Delete(ctx, key)
 	cancel()
 	if err != nil {
-		fmt.Printf("del from etcd failed, err:%v\n", err)
+		e.logger.E("del from etcd failed, err ", err)
 		return err
 	}
 
