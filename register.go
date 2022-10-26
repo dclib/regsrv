@@ -5,7 +5,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-const TTL = 30 // 租约时长 单位 s
+const TTL = 60 // 租约时长 单位 s 则续租为 1/3 10s
 
 // 服务注册
 type ServiceRegister struct {
@@ -49,7 +49,7 @@ func (k *ServiceRegister) LeaseAndKeepAlive(key, val string) error {
 func (k *ServiceRegister) readResponse(ch <-chan *clientv3.LeaseKeepAliveResponse) {
 	for {
 		<-ch
-		// 读出来清空
+		// 读出来清空,不然ch会满
 	}
 }
 

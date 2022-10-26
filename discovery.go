@@ -2,6 +2,7 @@ package regsrv
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/yxlib/yx"
@@ -13,8 +14,10 @@ import (
 type ServiceDiscovery struct {
 	cli        *EtcdClient // etcd 客户端
 	serverList sync.Map    // 服务器列表
-	prefix     string      //监视的前缀
-	logger     *yx.Logger
+	//prefix     string      // 监视的前缀
+
+	balance *WeightRoundRobinBalance // 加权负载均衡
+	logger  *yx.Logger
 }
 
 func NewServiceDiscovery(baseCfgPath string) *ServiceDiscovery {
@@ -25,8 +28,9 @@ func NewServiceDiscovery(baseCfgPath string) *ServiceDiscovery {
 	}
 
 	return &ServiceDiscovery{
-		cli:    cli,
-		logger: yx.NewLogger("ServiceDiscovery"),
+		cli:     cli,
+		balance: NewWeightBalance(),
+		logger:  yx.NewLogger("ServiceDiscovery"),
 	}
 }
 
@@ -50,7 +54,7 @@ func (s *ServiceDiscovery) WatchService(prefix string) error {
 //watcher 监听前缀
 func (s *ServiceDiscovery) watcher(prefix string) {
 	rch := s.cli.Watch(prefix, clientv3.WithPrefix())
-	s.logger.I("watching prefix:%s now...", prefix)
+	s.logger.I(fmt.Sprintf("watching prefix:%s now...", prefix))
 	for wresp := range rch {
 		for _, ev := range wresp.Events {
 			switch ev.Type {
@@ -64,13 +68,18 @@ func (s *ServiceDiscovery) watcher(prefix string) {
 }
 
 //GetServices 获取服务地址
-func (s *ServiceDiscovery) getServices() []Address {
+func (s *ServiceDiscovery) GetServices() []Address {
 	addrs := make([]Address, 0, 10)
 	s.serverList.Range(func(k, v interface{}) bool {
 		addrs = append(addrs, v.(Address))
 		return true
 	})
 	return addrs
+}
+
+// 加权轮询获取服务的ip和端口
+func (s *ServiceDiscovery) GetServiceIpAndPort() string {
+	return s.balance.Next()
 }
 
 //SetServiceList 新增服务地址
@@ -89,15 +98,19 @@ func (s *ServiceDiscovery) SetServiceList(key, val string) {
 	}
 
 	//把服务地址权重存储到resolver.Address的元数据中
-	addr = SetAddrInfo(addr, AddrInfo{Weight: nodeWeight})
+	addr.Attributes = NewAttributes(key, nodeWeight)
 	s.serverList.Store(key, addr)
-	s.logger.I("put key :", key, "val:", val)
+	s.balance.UpdateBalance(s.serverList)
+
+	s.logger.I("put key: ", key, "val: ", val)
 }
 
 //DelServiceList 删除服务地址
 func (s *ServiceDiscovery) DelServiceList(key string) {
 	s.serverList.Delete(key)
-	s.logger.I("del key:", key)
+	s.balance.UpdateBalance(s.serverList)
+
+	s.logger.I("del key: ", key)
 }
 
 //Close 关闭服务

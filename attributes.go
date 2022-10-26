@@ -28,6 +28,7 @@ func (a *Attributes) WithValues(kvs ...interface{}) *Attributes {
 	if len(kvs)%2 != 0 {
 		panic(fmt.Sprintf("attributes.New called with unexpected input: len(kvs) = %v", len(kvs)))
 	}
+	
 	n := &Attributes{m: make(map[interface{}]interface{}, len(a.m)+len(kvs)/2)}
 	for k, v := range a.m {
 		n.m[k] = v
