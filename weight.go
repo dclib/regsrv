@@ -7,15 +7,15 @@ import (
 )
 
 type WeightRoundRobinBalance struct {
-	//curIndex int
-	rss []*WeightNode
-	//rsw      []int
-	mu sync.Mutex
+	serverList sync.Map // 服务器列表
+	rss        []*WeightNode
+	mu         sync.Mutex
 }
 
 func NewWeightBalance() *WeightRoundRobinBalance {
 	return &WeightRoundRobinBalance{
-		mu: sync.Mutex{},
+		serverList: sync.Map{},
+		mu:         sync.Mutex{},
 	}
 }
 
@@ -42,10 +42,10 @@ func (r *WeightRoundRobinBalance) BuildBalance(params ...string) error {
 	return nil
 }
 
-func (r *WeightRoundRobinBalance) UpdateBalance(serverList sync.Map) {
+func (r *WeightRoundRobinBalance) UpdateBalance() {
 	// 更新
 	nodeList := make([]*WeightNode, 0, 4)
-	serverList.Range(func(key, value interface{}) bool {
+	r.serverList.Range(func(key, value interface{}) bool {
 		addrInfo := value.(Address)
 		node := &WeightNode{addr: addrInfo.Addr, weight: addrInfo.Attributes.Value(key).(int)}
 		node.effectiveWeight = node.weight

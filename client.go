@@ -15,6 +15,7 @@ type Config struct {
 	DialTimeoutSec int      `json:"dts"`
 	EtcdUser       string   `json:"etcdUser"`
 	EtcdPass       string   `json:"etcdPass"`
+	Watcher        []string `json:"watcher"`
 }
 
 type EtcdClient struct {
